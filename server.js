@@ -1,28 +1,29 @@
 // server.js
 const express = require("express");
 require("dotenv").config();
-const cors = require("cors");
 const { Pool } = require("pg");
+
 const productRoutes = require("./routes/product.routes");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ✅ CORS setup: allow frontend (Vercel) and local dev
+// ✅ CORS setup: allow frontend (Netlify) and local dev
 const allowedOrigins = [
-  process.env.FRONTEND_URL, // Vercel frontend URL
+  process.env.FRONTEND_URL, // Reads from Render environment variable
   "http://localhost:5173"   // local dev
 ];
 
-app.use(cors({
-  origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error("Not allowed by CORS"));
-    }
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin) || !origin) {
+    res.setHeader("Access-Control-Allow-Origin", origin || "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization");
   }
-}));
+  if (req.method === "OPTIONS") return res.sendStatus(200); // preflight
+  next();
+});
 
 // ✅ Middleware
 app.use(express.json());
@@ -34,7 +35,7 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
-// Test database connection on startup
+// Test DB connection on startup
 pool.connect()
   .then(client => {
     console.log("✅ Connected to Neon database!");
@@ -49,7 +50,7 @@ app.get("/", (req, res) => {
   res.json({ message: "Welcome to the Simple Products REST API." });
 });
 
-// Optional test route to verify DB works
+// Optional DB test route
 app.get("/api/testdb", async (req, res) => {
   try {
     const { rows } = await pool.query("SELECT NOW()");
